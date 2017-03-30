@@ -4,6 +4,7 @@
  > Created Time: 2017年03月30日 星期四 15时16分07秒
 *******************************************/
 
+#include<errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>          /* See NOTES */
 #include<string.h>
@@ -12,9 +13,100 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include<stdlib.h>
+
+ #define ERR_EXIT(m) \
+      do\
+      {\
+         perror(m);\
+         exit(EXIT_FAILURE);\
+     }while(0)
+
+ struct packet
+ {
+    int len;
+	char buf[1024];
+ };
+
+
+//这是在应用层设计类一个包装函数 解决粘包问题
+ssize_t readn(int fd, void *buf,size_t count)
+{
+	size_t nletf = count;//**********不注释啦肯定要理解哦这段函数**
+	ssize_t nread;
+	char *bufp = (char*)buf;
+	while(nletf > 0)
+	{
+		if( (nread = read(fd,bufp,nletf)) < 0 )
+		{
+			if(errno == EINTR)
+				continue;
+			return -1;
+		}
+		else if(nread == 0)// 还是不偷懒了注释下吧
+			return count - nletf;//nleft变小了 count变大了表示读取了多少
+		bufp += nread;  //指针位置要变动的
+		nletf -= nread; 
+	}
+	return count;// 返回读取了多少
+}
+
+ //这是在应用层设计类一个包装函数 解决粘包问题
+  ssize_t writen(int fd, const void *buf,size_t count)
+  {
+      size_t nletf = count;//**********不注释啦肯定要理解哦这段函数**
+      ssize_t nwritten;
+      char *bufp = (char*)buf;
+      while(nletf > 0)
+      {
+          if( (nwritten = write(fd,bufp,nletf) ) < 0 )
+          {
+              if(errno == EINTR)
+                  continue;
+              return -1;
+          }
+          else if(nwritten == 0)// 还是不偷懒了注释下吧
+              continue ; //nwritten 读取为0表示什么也没做 继续干吧少年
+          bufp += nwritten;  //指针位置要变动的
+          nletf -=	nwritten; 
+      }
+      return count;// 返回写了多少
+  }
 
 
 
+ void  do_service(int conn)
+ {
+	 struct packet recvbuf;
+	 int n;
+        while(1)
+        {
+         memset(&recvbuf,0,sizeof(recvbuf));
+         int ret = readn(conn,&recvbuf.len,4);
+         if(ret == -1)
+			 ERR_EXIT("read");
+		 else if(ret < 4)
+         {
+              printf("client_close\n");
+              break;
+         }
+         
+		 n = ntohl(recvbuf.len);
+		 ret = readn(conn,recvbuf.buf,n);
+		 if(ret == -1)
+			 ERR_EXIT("read");
+		 else if(ret < n)
+		 {
+			 printf("client close\n");
+			 break;
+		 }
+
+          fputs(recvbuf.buf,stdout);
+          writen(conn,&recvbuf,4+n); 
+        
+		}
+ 
+ }
 
 int main()
 {
@@ -54,13 +146,14 @@ int main()
          printf("ip=%s  port=%d\n",inet_ntoa(peeraddr.sin_addr),
 		                                ntohs(peeraddr.sin_port));
 
-	char recvbuf[1024];
+//	char recvbuf[1024];
 	while(1)
 	{
-		memset(recvbuf,0,sizeof(recvbuf));
-		int ret = read(conn,recvbuf,sizeof(recvbuf));
-		fputs(recvbuf,stdout);
-		write(conn,recvbuf,ret);
+		do_service(conn);
+//		memset(recvbuf,0,sizeof(recvbuf));
+//		int ret = read(conn,recvbuf,sizeof(recvbuf));
+//		fputs(recvbuf,stdout);
+//		write(conn,recvbuf,ret);
 		
 	}
 
