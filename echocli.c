@@ -21,12 +21,12 @@
            exit(EXIT_FAILURE);\
        }while(0)
 
- struct packet
+/* struct packet
  {
   	int len;
     char buf[1024];
  };
-
+*/
 
 //这是在应用层设计类一个包装函数 解决粘包问题
   ssize_t readn(int fd, void *buf,size_t count)
@@ -50,8 +50,8 @@
       return count;// 返回读取了多少
   }
 
-  //这是在应用层设计类一个包装函数 解决粘包问题                                   
-    ssize_t writen(int fd, const void *buf,size_t count)
+  //这是在应用层设计类一个包装函数 解决粘包问题                                  
+  ssize_t writen(int fd, const void *buf,size_t count)
     {
         size_t nletf = count;//**********不注释啦肯定要理解哦这段函数**
         ssize_t nwritten;
@@ -72,6 +72,62 @@
         return count;// 返回写了多少
     }
 
+
+ //自己封装一个函数recv_peek  设置flag 为MSG_PEEK 就是只查看缓存数据 不拿走      
+ //查看后看情况 调用 read 函数进行读取哦
+ //用到了recv函数该函数只能用与socket I/O
+ssize_t  recv_peek(int sockfd,void *buf,size_t len )
+ {
+    while(1)
+    {
+        int  ret = recv(sockfd ,buf,len ,MSG_PEEK);
+            if(ret == -1 && errno == EINTR)
+                    continue;
+            return ret;
+    }
+ }
+//该函数也是只能用于socket I/O 因为用到了recv函数
+//readline函数是在包尾加\n解决粘包问题
+ssize_t  readline(int sockfd,void *buf,size_t maxline)
+{ 
+    int  ret ;
+    int nread;
+    char *bufp = (char*) buf;
+    int nleft = maxline;
+    while(1)
+    {
+        ret = recv_peek(sockfd,bufp,nleft);
+        if(ret<0 )
+            return ret;//ret<0直接返回 因为recv函数里面对ret<0已经进行了处理
+        else if(ret ==0)
+            return ret;
+        nread = ret;
+        int i;
+        for(i= 0;i<nread;i++)
+        {
+            if(bufp[i] =='\n')
+            {
+                ret = readn(sockfd,bufp,i+1);
+                if(ret !=i+1)
+                    exit(EXIT_FAILURE);
+
+                return ret;
+            }
+        }
+        //当缓冲区中没有\n 该如何处理 
+       if(nread > nleft) // 当出偷窥到的数据超过剩余数据 出错
+            exit(EXIT_FAILURE);
+        nleft -= nread;
+        ret = readn(sockfd, bufp,nread);//读走偷窥到的数据
+        if(ret != nread)     //若读取到的数据不等与偷窥到的数据  出错
+            exit(EXIT_FAILURE);
+
+        bufp += nread;  //读完后缓冲区指针偏移 继续偷窥查找 \n 循环执行
+    }
+    return -1;
+}
+
+
 int main()
 {
 	int sock;
@@ -90,42 +146,25 @@ int main()
 	if(connect(sock,(struct sockaddr*)&servaddr,sizeof(servaddr) ) < 0)
 		printf("error connect");
 	
-	int n;
-	struct packet sendbuf;
-	struct packet recvbuf;
-	memset(&sendbuf,0,sizeof(sendbuf));
-	memset(&recvbuf,0,sizeof(recvbuf));
 
-//	char sendbuf[1024] = {0};
-//	char recvbuf[1024] = {0};
+	
+	char sendbuf[1024] = {0};
+	char recvbuf[1024] = {0};
 
-	while(fgets(sendbuf.buf,sizeof(sendbuf),stdin) !=NULL)
+	while(fgets(sendbuf,sizeof(sendbuf),stdin) !=NULL)
 	{	
-		 n = strlen(sendbuf.buf);
-		 sendbuf.len = htonl(n);
-   		 //writen(sock,sendbuf,sizeof(sendbuf));// 修改了strlen 发送定长包
-		writen(sock,&sendbuf,4+n); 
+		writen(sock,sendbuf,strlen(sendbuf)); 
 		
-           int ret = readn(sock,&recvbuf.len,4);
+           int ret = readline(sock,recvbuf,sizeof(recvbuf));
            if(ret == -1)
-               ERR_EXIT("read");
-           else if(ret < 4)
+               ERR_EXIT("readline");
+           else if(ret == 0)
            {
                 printf("client_close\n");
                 break;
            }
-    
-           n = ntohl(recvbuf.len);
-           ret = readn(sock,recvbuf.buf,n);
-           if(ret == -1)
-               ERR_EXIT("read");
-           else if(ret < n)
-           {
-              printf("client close\n");
-              break;
-		   }
 
-		   fputs(recvbuf.buf,stdout);
+		   fputs(recvbuf,stdout);
 		   memset(&sendbuf,0,sizeof(sendbuf));
 		   memset(&recvbuf,0,sizeof(recvbuf));
 	}
