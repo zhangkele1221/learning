@@ -39,6 +39,7 @@ int main(void)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGCHLD, SIG_IGN);
 
+	int idlefd = open("/dev/null",O_RDONLY | O_CLOEXEC );
 	int listenfd;
 
 	if ((listenfd = socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 
@@ -95,8 +96,21 @@ int main(void)
 			connfd = accept4(listenfd ,(struct sockaddr*)&peeraddr,
 							&peerlen, SOCK_NONBLOCK | SOCK_CLOEXEC );
 
+			//处理EMFILE 错误方法  你懂的！！！！！
 			if (connfd == -1)
-				ERR_EXIT("accept4");
+			{
+				if (errno == EMFILE)
+				{
+					close(idlefd);
+					idlefd = accept(listenfd, NULL, NULL);
+					close(idlefd);
+					idlefd = open("/dev/null", O_RDONLY | O_CLOEXEC);
+					continue;
+				}
+				else
+					ERR_EXIT("accept4");
+			}
+			
 
 		//将接收到的connfd放到  数组中去监测
 		pfd.fd = connfd;
@@ -105,7 +119,7 @@ int main(void)
 		pollfds.push_back(pfd);
 		--nready ;  //将返回值 nready 减1   因为nready为返回的就绪的描述符数目 
 
- 		//连接ok   打印已链接的客户端的地址
+		//连接ok   打印已链接的客户端的地址
 		cout<<"ip="<<inet_ntoa(peeraddr.sin_addr)<<
 				" port="<<ntohs(peeraddr.sin_port)<<std::endl;
 		
