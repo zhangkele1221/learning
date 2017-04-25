@@ -1,0 +1,181 @@
+					map
+map 是什么
+
+    1. map 的本质
+map 本质是一类关联式容器，属于模板类 
+关联的本质在于 《==》 元素的值  与 《==》 某个特定的键相关联，
+而并非通过元素在数组中的位置类获取。
+它的特点是增加和删除节点对迭代器的影响很小，
+除了操作节点，对其他的节点都没有什么影响。
+对于迭代器来说，不可以修改键值，只能修改其对应的实值。
+map 内部数据的组织，map 内部自建一棵红黑树（一种非严格意义上的平衡二叉树），
+这棵树具有对数据自动排序的功能，所以在 map 内部所有的数据都是有序的。
+
+    2. map 的功能
+自动建立 Key-value 的一一对应关系。
+比如一个班级中，每个学生的学号跟他的姓名就存在着一一映射的关系，
+这个模型用 map 可能轻易描述，很明显学号用 int 描述，姓名用字符串描述
+（本篇文章中不用 char * 来描述字符串，而是采用 STL 中 string 来描述），
+可以使用这样的一个 map：Map<int, string> mapStudent;
+key 和 value 可以是任意你需要的类型，
+但是需要注意的是对于 key 的类型，唯一的约束就是必须支持 < 操作符。
+根据 key 值快速查找记录，查找的复杂度基本是 Log(N)，
+即如果有 1000 个记录，最多查找 10 次；
+1 000 000 个记录，最多查找 20 次。
+除此之外，还有快速插入 Key-Value 记录、
+快速删除记录、根据 Key 修改 value 记录、遍历所有记录等功能。
+
+	3. map 需要包括的头文件
+使用 map 得包含 map 类所在的头文件：
+#include <map> // 注意，STL 头文件没有扩展名 .h。
+
+
+map 的查增删
+
+	1. map 的插入
+先讲下 map 的插入，map 的插入有 3 种方式：
+用 insert 函数插入 pair 数据、用 insert 函
+数插入 value_type 数据和用数组方式插入数据。
+
+ 用数组方式在 map 中插入数据，和数组访问一样，
+ 有下标、直接赋值。以上 3 种用法，虽然都可以实现数据的插入，
+ 但是它们是有区别的，当然了第一种和第二种在效果上是完成一样的，
+ (用 insert 函数插入数据，在数据的插入上涉及  集合的唯一性这个概念，)
+ 即当 map 中有这个关键字时，insert 操作是插入数据不了的，
+ 但是用数组方式就不同了，它可以      覆盖以前该关键字对应的值。*/
+  
+mapStudent.insert(map<int, string>::value_type (1, "student_one"));
+mapStudent.insert(map<int, string>::value_type (1, "student_two"));
+
+上面这两条语句执行后，map 中 1 这个关键字对应的值是 student_one，
+第二条语句并没有生效，
+那么这就涉及如何知道 insert 语句是否插入成功的问题了，
+可以用 pair 来获得是否插入成功，程序如下：
+
+pair< map<int, string>::iterator, bool > insert_pair;
+insert_pair = mapStudent.insert(map<int, 
+								string>::value_type (1, "student_one"));
+
+可以通过 pair 的第二个变量来知道是否插入成功，
+它的第一个变量返回的是一个 map 的迭代器，
+如果插入成功的话 insert_Pair.second 应该是 true 的，否则为 false。
+
+	2. map 的遍历
+map 数据的遍历，这里也提供 3 种方法，来对 map 进行遍历：(应用前向迭代器方式)、(应用反向迭代器方式)和(数组)方式。
+应用前向迭代器，上面举例程序中已经讲解过了，这里着重
+讲解应用反向迭代器的方式，下面举例说明。
+	
+	(应用反向迭代器方式
+	map<int ,string>::reverse_iterator  iter;
+	for(iter = mapStudent.rbegin();iter!=rend();iter++)
+	
+	数组
+	int iSize = mapStudent.size();
+	for(int i = 1; i <= iSize; i++){
+		cout<<i<<" "<<mapStudent[i]<<endl;
+	}
+	
+***********用 size() 方法确定当前 map 中有多少元素。
+**************用数组访问 vector 时，下标是从0 ～（size-1）***********，
+而用数组访问 map，却是从 1~size，这是有所不同的，请使用者多加注意	
+	
+	
+	  3. map 的查找
+在这里可以充分体会到map在数据插入时保证有序的好处。
+要判定一个数据（关键字）是否在 map 中出现的方法比较多，
+          这里给出 2 种常用的数据查找方法。
+  第一种：用 count 	  函数来判定关键字是否出现，其缺点是无法定位数据出现位置，由于
+map 的一对一的映射特性，就决定了 count 函数的返回值只有两个，
+要么是 0，要么是 1，当要判定的关键字出现时返回 1。
+  第二种：用 find 函数来定位数据出现位置，它返回的一个迭代器，当数据出现时，它返
+回数据所在位置的迭代器；如果 map 中没有要查找的数据，它返回的迭代器等于 end 函数返回的迭代器。
+
+	
+	4. map 的删除
+用 erase 方法可删除 map 中的元素。erase 的函数原型是：map.erase(k)
+删除 map 中键为 k 的元素，并返回
+size_type类型的值以表示删除的元素个数，代码如下：
+map.erase(p)
+从 map 中删除迭代器 p 所指向的元素。p 必须指向 map
+中确实存在的元素，而且不能等于 map.end()，返回 void 类型，代码如下：
+map.erase(b,e)
+从 map 中删除一段范围内的元素，该范围由迭代器对 b 和 e 标记。b 和 e 必须标记 map
+中的一段有效范围：即 b 和 e 都必须指向 map 中的元素或最后一个元素的下一个位置。而且，
+b 和 e 要么相等（此时删除的范围为空），要么 b 所指向的元素必须出现在 e 所指向的元素之前，返回 void 类型。
+常用的是第二种，并且是在遍历的过程中删除元素。
+	
+	
+				mapStudent.erase(iter++);
+/****************************************************************/
+//mapStudent.erase(iter++); 中的 iter++，不是 erase(iter)，然后 iter++。
+//因为 iter 指针被erase 之后就失效了，不能再用 iter++ ；
+//也不是 erase(++iter)，这样就不是删 iter 原来指向的元素了
+/***************************************************************/
+
+	
+
+		5. map 的排序
+map 的排序默认按照 key 从小到大排序，但有以下几点需要注意：
+①按照 key 从大到小排序；
+② key（第一个元素）是一个结构体；
+③想按 value（第二个元素）排序。
+map 是 STL 里面的一个模板类，现在来看下 map 的定义：
+template < class Key, class T, class Compare = less<Key>,
+		   class Allocator = allocator<pair<const Key,T> > > class map;
+它有 4 个参数，其中比较熟悉的有两个：Key 和 Value。
+第 4 个是 Allocator，用来定义存储分配模型的，此处不作介绍。
+现在重点看下第 3 个参数：
+class Compare = less<Key>
+这也是一个 class 类型的，而且提供了默认值 less<Key>。
+less 是 STL 里面的一个函数对象，那么什么是函数对象呢？
+所谓的函数对象，即调用操作符的类，其对象常称为函数对象（functionobject），它们是行为类似函数的对象。表现出一个函数的特征，
+就是通过“对象名 +( 参数列表 )”的方式使用一个类，
+其实质是对 operator() 操作符的重载。
+
+现在来看一下 less 的实现：
+template <class T> struct less : binary_function <T,T,bool> {
+bool operator() (const T& x, const T& y) const
+{return x<y;}
+};
+注 意
+它是一个带模板的 struct，里面仅仅对 () 运算符进行了重载，实现很简单，但用起来很方便，这就是函数对象的优点所在。
+STL 中还为四则运算等常见运算定义了这样的函数对象，
+与 less 相对的还有 greater：
+template <class T> struct greater : binary_function <T,T,bool> {
+bool operator() (const T& x, const T& y) const
+{return x>y;}
+};
+	
+只需指定它的第 3 个参数 Compare，把默认的 less 指定为 greater，即
+可达到按照 key 从大到小排序。
+现在知道如何为 map 指定 Compare 类了，如果想自己写一个Compare 的类，
+让 map 按照想要的顺序来存储，比如按照学生姓名的长短排序进行存储，
+那么只要自己写一个函数对象，实现想要的逻辑，
+并在定义 map 的时候把 Compare 指定为自己编写的这个就可以实现了，代码如下：
+struct CmpByKeyLength {
+bool operator()(const string& k1, const string& k2) {
+return k1.length() < k2.length();
+}
+};
+这里不用把 Compare 定义为模板，直接指定它的参数为 string 类型就可以了
+	
+key 是结构体的，如果没有重载小于号（<）操作，就会导致 insert 函数在编译时就无法编译成功。其实，为了实现快速查找，map 内部本身就是按序存储的（比如红黑树）。
+在插入<key, value> 键值对时，就会按照 key 的大小顺序进行存储。
+这也是作为 key 的类型必须能够进行 < 运算比较的原因
+
+YOU know  up！！！！！！！！！
+
+	    
+
+
+
+
+
+
+
+
+
+
+
+	
+	
