@@ -1,0 +1,49 @@
+							线程池的实现
+	用于执行大量相对短暂的任务
+	
+	当任务增加的时候能够动态的 增加线程池 (/*线程的数量值*/) 到达一个阀值
+	
+	当/*任务执行完毕的时候*/，能够(动态的销毁线程池中的线程)
+	
+	该线程池的实现本质上也是生产者与消费者模型的应用．生产者线程向任务队列
+	中添加任务，一旦队列有任务到来，如果有等待线程就喊醒来执行任务，
+	如果没有等待线程并且数量没有达到阀值，就创建新线程来执行任务．
+	
+	
+计算密集型任务： 《==》   线程个数 = cpu个数
+I/O密集型任务：  《==》	  线程个数 > cpu个数
+
+//任务结构体 将任务放入队列由线程池中的线程来执行
+typedef struct task
+{
+	void *(*run)(void *arg);  //任务回调函数
+	void *arg;				 //回调函数的参数
+	struct task *next;
+}task_t;
+
+//线程池结构体
+typedef struct threadpool
+{
+	condition_t ready;     //任务准备就绪或线程池销毁通知
+	task_t *first;         //任务队列头指针
+	task_t *last;          //任务队列尾指针
+	int counter;           //线程池中当前线程数目
+	int idle;			   //线程池中当前正在等待任务的线程数
+	int max_threads;       //线程池中最大允许的线程数
+	int　quit;			   //销毁线程池的时候置１
+}threadpool_t;
+
+//初始化线程池
+void threadpool_init(threadpool_t *pool, int threads);
+//往线程池中添加任务
+void threadpool_add_task(threadpool_t *pool,void*(*run)(void *arg),void*arg);
+//销毁线程池
+void threadpool_destroy(threadpool_t *pool);
+
+
+
+
+
+
+
+
