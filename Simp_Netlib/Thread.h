@@ -18,3 +18,32 @@ public:
 private:
 	ThreadFunc m_func;
 };
+
+class Thread{
+public:
+	typedef std::function<void()> ThreadFunc;
+	explicit Thread(const ThreadFunc& func);
+	~Thread();
+
+
+	int run();
+	int join();
+	bool isRunning();
+	pthread_t getTid();
+
+
+private:
+	ThreadFunc m_func;
+	bool m_isRunning;
+	bool m_joined;
+	pthread_t m_tid;
+	ThreadData* m_data;
+};
+
+#endif
+
+
+
+
+
+
